@@ -12,6 +12,7 @@
 | דף ניהול (יצירת מסכים, שינוי שם, הודעות) | `/admin` |
 | הנתונים של מסך (ציבורי) | `GET /api/screen/<מזהה>` |
 | ניהול דרך API (בשביל ה-CRM) | `/api/admin/...` עם `Authorization: Bearer <ADMIN_KEY>` |
+| התמונות והסרטונים שהועלו | `/media/...` (נשמרים ב-R2) |
 
 - **כל מסך** מקבל שם וכתובת שאתה בוחר ויכול לשנות בכל זמן, וגם **מזהה קבוע**
   (למשל `m4tikfetk`) שלא משתנה לעולם. במחשב שמציג כדאי לשים את הכתובת עם המזהה הקבוע.
@@ -20,6 +21,13 @@
 - **אף פעם לא מוצג דף שגיאה:** הדף שומר את המידע האחרון. אם השרת לא עונה, ממשיכים
   להציג אותו (נקודה אדומה קטנה בפינה מסמנת שאין חיבור). הדף גם מתרענן לבד אחרי עדכון
   של האתר — אבל רק אחרי שבדק שהשרת עונה כמו שצריך.
+- **שליטה מרחוק:** כל מסך בודק כל 15 שניות אם משהו השתנה (בקשה קטנה). רק כשמשהו השתנה הוא מוריד
+  את הכול. מדף הניהול רואים אם המסך מחובר, מה הרזולוציה שלו ותצוגה מקדימה חיה, ושולחים פקודות:
+  עדכון נתונים, רענון מלא, זיהוי מסך, והודעה דחופה על המסך.
+- **קבצים:** תמונות (JPG/PNG/WEBP/GIF), סרטונים (MP4/WEBM) ו-PDF. PDF מתפרק בדפדפן לעמודים, וכל עמוד
+  הוא שקופית. תמונות גדולות מוקטנות לפני ההעלאה. לכל קובץ: כמה שניות, מאיזה תאריך עד איזה תאריך,
+  "על כל המסך", מוצג/מוסתר וסדר.
+- **מצב לילה:** אפשר לקבוע שעות שבהן המסך שחור.
 - **זמני תפילה:** עד שה-CRM ישלח את הזמנים האמיתיים, מוצגים זמנים לדוגמה עם התווית
   "זמנים לדוגמה". אפשר גם להקליד זמנים ידנית בדף הניהול.
 
@@ -33,7 +41,9 @@
    - **Build command:** להשאיר ריק.
    - **Deploy command:** `npx wrangler deploy`
    - **Root directory:** `/`
-5. **Create and deploy.** בפריסה הראשונה Cloudflare יוצר לבד את מסד הנתונים.
+5. **Create and deploy.** בפריסה הראשונה Cloudflare יוצר לבד את מסד הנתונים ואת אחסון הקבצים.
+   - **לפני כן צריך להפעיל R2 בחשבון (פעם אחת):** בתפריט **R2 Object Storage** ← מפעילים את המסלול
+     (חינם עד 10GB, אבל Cloudflare מבקש כרטיס אשראי). בלי זה הבנייה נכשלת — והגרסה הקודמת ממשיכה לעבוד.
 6. אחרי שהפריסה הצליחה: נכנסים ל-Worker ← **Settings** ← **Variables and Secrets** ← **Add**:
    - Type: **Secret**
    - Name: `ADMIN_KEY`
@@ -70,9 +80,24 @@
 | `parnes` | `{"date":"2026-11-18"?, "text":"..."}` |
 
 הגדרות מסך (`settings`): `title`, `subtitle`, `orientation` (`auto`/`landscape`/`portrait`),
-`theme` (`navy`/`cream`/`burgundy`), `hour12`, `showSeconds`, `slideSeconds`,
+`theme` (`navy`/`cream`/`burgundy`), `clock24`, `hour12`, `showSeconds`, `slideSeconds`,
+`showTefilot`, `showZmanim`, `showTicker`, `showParnes`, `showGlobalMedia`, `sleepFrom`, `sleepTo` (`HH:MM`),
 `candleMinutes`, `havdalahMinutes`, `tzeitMinutes`, `zmanim` (רשימה מתוך `/api/admin/meta`),
 `location` (`name`, `lat`, `lon`, `tz`).
+
+### קבצים, פקודות ומצב המסך
+
+| בקשה | מה עושה |
+|------|---------|
+| `GET /api/admin/media?scope=<global או id>` | רשימת הקבצים |
+| `POST /api/admin/media?scope=..&title=..&seconds=..&full=1&from=..&to=..&w=..&h=..` | העלאה (גוף הבקשה = הקובץ, עם Content-Type) |
+| `PATCH /api/admin/media/<id>` `{"title","seconds","full","enabled","from","to"}` | עדכון קובץ |
+| `POST /api/admin/media/order` `{"scope","ids":[...]}` | סדר הקבצים |
+| `DELETE /api/admin/media/<id>` | מחיקה (גם מהאחסון) |
+| `POST /api/admin/screens/<id>/command` `{"type":"refresh"\|"reload"\|"identify"}` | פקודה למסך (תוך 15 שניות) |
+| `PUT /api/admin/screens/<id>/alert` `{"text","minutes"}` / `DELETE` | הודעה דחופה על המסך |
+
+ב-`GET /api/admin/screens` כל מסך מגיע עם `seen_at` (מתי דיווח לאחרונה) ו-`seen_info` (רזולוציה, גרסה).
 
 ## פיתוח מקומי
 
@@ -87,7 +112,6 @@ npm run check    # בדיקה שהפריסה תעבוד, בלי לפרוס
 ## מה בהמשך
 
 - ה-CRM שולח לכאן זמני תפילה, פרנס היום ותורמים (דחיפה, לא משיכה).
-- העלאת תמונות ו-PDF שמתחלפים על המסך.
 - לשונית "מסכים" ב-CRM.
 - תוכנה למחשבי Windows: פותחת את המסך במסך מלא, שומרת שהוא חי, ומקבלת פקודות
   (רענון, הפעלה מחדש) מה-CRM.

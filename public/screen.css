@@ -19,13 +19,13 @@ body.portrait { --u: min(1.78vw, 1vh); }
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; }
 html, body { height: 100%; overflow: hidden; }
 body {
   background: radial-gradient(ellipse at 50% 0%, var(--bg2), var(--bg) 70%);
   background-color: var(--bg);
   color: var(--text);
   font-family: 'Heebo', 'Arial Hebrew', Arial, sans-serif;
-  cursor: none;
   user-select: none;
 }
 h2 {
@@ -143,3 +143,49 @@ body.portrait .ticker { flex: none; height: calc(var(--u) * 4.6); }
   position: fixed; bottom: calc(var(--u) * .5); left: calc(var(--u) * .5);
   width: calc(var(--u) * .9); height: calc(var(--u) * .9); border-radius: 50%; background: #c0392b; opacity: .7;
 }
+
+/* ---- העכבר נעלם רק אחרי 3 שניות בלי תנועה ---- */
+body.idle, body.idle * { cursor: none !important; }
+
+/* ---- חלקים מוסתרים לפי ההגדרות ---- */
+body.no-tefilot #tefilotPanel, body.no-zmanim #zmanimPanel { display: none; }
+body.no-tefilot .grid { grid-template-columns: 1.5fr 1fr; }
+body.no-zmanim .grid { grid-template-columns: 1fr 1.5fr; }
+body.no-tefilot.no-zmanim .grid { grid-template-columns: 1fr; }
+body.no-ticker #tickerBox { display: none; }
+body.no-ticker.no-parnes #bottom { display: none; }
+body.portrait.no-tefilot .grid, body.portrait.no-zmanim .grid { grid-template-columns: 1fr; }
+body.portrait.no-tefilot.no-zmanim .grid { grid-template-rows: 1fr; }
+
+/* ---- תמונות וסרטונים בשקופיות ---- */
+.slide.media { padding: 0; }
+.slide img, .slide video { width: 100%; height: 100%; object-fit: contain; border-radius: calc(var(--u) * .6); }
+.slide .caption { position: absolute; bottom: 0; inset-inline: 0; text-align: center; padding: calc(var(--u) * .6);
+  font-size: calc(var(--u) * 1.8); background: linear-gradient(transparent, rgba(0,0,0,.65)); color: #fff;
+  border-radius: 0 0 calc(var(--u) * .6) calc(var(--u) * .6); }
+
+/* ---- על כל המסך ---- */
+.full { position: fixed; inset: 0; background: #000; z-index: 20; }
+.full .slide { padding: 0; }
+.full .slide img, .full .slide video { border-radius: 0; }
+
+/* ---- הודעה דחופה ---- */
+.alert {
+  background: var(--accent); color: var(--bg); text-align: center; border-radius: calc(var(--u) * 1);
+  font-family: 'Frank Ruhl Libre', serif; font-weight: 900; font-size: calc(var(--u) * 3.2);
+  padding: calc(var(--u) * 1) calc(var(--u) * 2); line-height: 1.3;
+  animation: pulse 2.4s ease-in-out infinite;
+}
+@keyframes pulse { 50% { filter: brightness(1.15); } }
+
+/* ---- זיהוי מסך ---- */
+.identify {
+  position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: rgba(0,0,0,.82); color: #fff; text-align: center; gap: 2vh;
+  font-family: 'Heebo', sans-serif;
+}
+.identify b { font-size: 9vmin; color: #f0d58a; }
+.identify span { font-size: 4vmin; direction: ltr; }
+
+/* ---- מצב לילה ---- */
+.sleep { position: fixed; inset: 0; background: #000; z-index: 30; }

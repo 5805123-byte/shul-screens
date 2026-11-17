@@ -1,6 +1,7 @@
 // Service worker של המסך: אם השרת לא עונה או מחזיר שגיאה (למשל 502 בזמן עדכון),
 // מגישים את העותק האחרון ששמור — כך שעל המסך לעולם לא יופיע דף שגיאה.
-const CACHE = 'shul-screen-v1';
+const CACHE = 'shul-screen-v2';
+const MEDIA = 'shul-media-v1';
 const SHELL = ['/screen', '/screen.css', '/screen.js'];
 
 self.addEventListener('install', (e) => {
@@ -9,7 +10,7 @@ self.addEventListener('install', (e) => {
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys()
-    .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+    .then((keys) => Promise.all(keys.filter((k) => k !== CACHE && k !== MEDIA).map((k) => caches.delete(k))))
     .then(() => self.clients.claim()));
 });
 
@@ -31,6 +32,19 @@ self.addEventListener('fetch', (e) => {
   }
   if (url.origin !== location.origin) return;
   if (url.pathname.startsWith('/api/')) return;   // הנתונים — הדף עצמו מטפל בזה
+
+  // תמונות שהועלו — השם שלהן לא משתנה לעולם, אז מהמטמון קודם (עובד גם בלי אינטרנט).
+  // סרטונים לא נשמרים כאן (גדולים, והדפדפן מבקש אותם בחלקים).
+  if (url.pathname.startsWith('/media/') && !/\.(mp4|webm)$/.test(url.pathname)) {
+    e.respondWith(caches.open(MEDIA).then(async (c) => {
+      const hit = await c.match(url.pathname);
+      if (hit) return hit;
+      const res = await fetch(req);
+      if (res.ok) c.put(url.pathname, res.clone());
+      return res;
+    }));
+    return;
+  }
 
   // דף המסך וקבצי העיצוב — קודם מהרשת, ואם נכשל/שגיאה — מהמטמון
   const isScreenPage = req.mode === 'navigate' && /^\/(?:s\/)?[a-z0-9][a-z0-9-]*\/?$/.test(url.pathname)

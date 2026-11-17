@@ -27,8 +27,10 @@
     </div>
   </header>
 
+  <div class="alert" id="alert" hidden></div>
+
   <main class="grid">
-    <section class="panel tefilot">
+    <section class="panel tefilot" id="tefilotPanel">
       <h2 id="tefilotTitle">זמני תפילה</h2>
       <div class="badge demo" id="demoBadge" hidden>זמנים לדוגמה</div>
       <ul class="rows" id="tefilot"></ul>
@@ -39,18 +41,24 @@
       <div class="slides" id="slides"></div>
     </section>
 
-    <section class="panel zmanim">
+    <section class="panel zmanim" id="zmanimPanel">
       <h2>זמני היום</h2>
       <ul class="rows" id="zmanim"></ul>
     </section>
   </main>
 
-  <footer class="bottom">
+  <footer class="bottom" id="bottom">
     <div class="parnes" id="parnes" hidden></div>
-    <div class="ticker"><div class="ticker-track" id="ticker"></div></div>
+    <div class="ticker" id="tickerBox"><div class="ticker-track" id="ticker"></div></div>
   </footer>
 </div>
 
+<!-- תמונה / סרטון על כל המסך -->
+<div id="full" class="full" hidden></div>
+<!-- זיהוי מסך (פקודה מדף הניהול) -->
+<div id="identify" class="identify" hidden></div>
+<!-- מצב לילה -->
+<div id="sleep" class="sleep" hidden></div>
 <div id="message" class="message" hidden></div>
 <div id="offline" class="offline" hidden title="אין חיבור לשרת — מוצג המידע האחרון"></div>
 
