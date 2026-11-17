@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>מסך בית הכנסת</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/screen.css">
+</head>
+<body class="theme-navy landscape">
+<div id="app" hidden>
+  <header class="top">
+    <div class="brand">
+      <div class="title" id="title"></div>
+      <div class="subtitle" id="subtitle"></div>
+    </div>
+    <div class="clock">
+      <div class="time" id="clock"></div>
+    </div>
+    <div class="dates">
+      <div class="hebrew" id="hebrew"></div>
+      <div class="greg" id="greg"></div>
+      <div class="parsha" id="parsha"></div>
+    </div>
+  </header>
+
+  <main class="grid">
+    <section class="panel tefilot">
+      <h2 id="tefilotTitle">זמני תפילה</h2>
+      <div class="badge demo" id="demoBadge" hidden>זמנים לדוגמה</div>
+      <ul class="rows" id="tefilot"></ul>
+    </section>
+
+    <section class="panel center">
+      <div class="special" id="special" hidden></div>
+      <div class="slides" id="slides"></div>
+    </section>
+
+    <section class="panel zmanim">
+      <h2>זמני היום</h2>
+      <ul class="rows" id="zmanim"></ul>
+    </section>
+  </main>
+
+  <footer class="bottom">
+    <div class="parnes" id="parnes" hidden></div>
+    <div class="ticker"><div class="ticker-track" id="ticker"></div></div>
+  </footer>
+</div>
+
+<div id="message" class="message" hidden></div>
+<div id="offline" class="offline" hidden title="אין חיבור לשרת — מוצג המידע האחרון"></div>
+
+<script src="/screen.js"></script>
+</body>
+</html>

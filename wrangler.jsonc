@@ -1,0 +1,21 @@
+{
+  // מסכי בית הכנסת — Cloudflare Worker
+  // השם חייב להיות זהה לשם ה-Worker בלוח הבקרה של Cloudflare (אחרת הבנייה האוטומטית נכשלת)
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "shul-screens",
+  "main": "src/index.js",
+  "compatibility_date": "2026-11-17",
+
+  // קבצי האתר (הדף של המסך, דף הניהול)
+  "assets": { "directory": "./public", "binding": "ASSETS" },
+
+  // מסד הנתונים: בלי database_id — Cloudflare יוצר אותו לבד בפריסה הראשונה
+  "d1_databases": [{ "binding": "DB" }],
+
+  // מזהה הגרסה — כדי שהמסכים ירעננו את עצמם אחרי עדכון
+  "version_metadata": { "binding": "CF_VERSION_METADATA" },
+
+  "observability": { "enabled": true, "traces": { "enabled": true } }
+
+  // הסוד ADMIN_KEY מוגדר בלוח הבקרה (Settings → Variables and Secrets), לא כאן
+}

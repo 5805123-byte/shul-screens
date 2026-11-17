@@ -1,0 +1,2 @@
+# העתק לקובץ .dev.vars כדי להריץ מקומית (npm run dev). הקובץ .dev.vars לא נכנס לגיטהאב.
+ADMIN_KEY=change-me

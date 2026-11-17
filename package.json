@@ -1,0 +1,27 @@
+{
+  "name": "shul-screens",
+  "version": "1.0.0",
+  "description": "מסכי בית הכנסת — Cloudflare Workers",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "check": "wrangler deploy --dry-run --outdir .wrangler/dry",
+    "test": "node --test test/*.test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/5805123-byte/shul-screens.git"
+  },
+  "bugs": {
+    "url": "https://github.com/5805123-byte/shul-screens/issues"
+  },
+  "homepage": "https://github.com/5805123-byte/shul-screens#readme",
+  "dependencies": {
+    "@hebcal/core": "^6.16.1"
+  },
+  "devDependencies": {
+    "wrangler": "^4.163.0"
+  },
+  "private": true,
+  "type": "module"
+}
