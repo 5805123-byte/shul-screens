@@ -1,8 +1,9 @@
 // מסך בית הכנסת — הדף שרץ על המחשב.
 // עיקרון: המסך לעולם לא מציג דף שגיאה. אם השרת לא עונה, ממשיכים להציג את המידע האחרון ששמור.
 //
-// כל 15 שניות: בדיקה קטנה (poll) — האם התוכן השתנה, האם יש פקודה (רענון / זיהוי), האם עלתה גרסה חדשה.
-// רק אם משהו השתנה מורידים את כל הנתונים. בנוסף, הורדה מלאה כל 10 דקות.
+// חיבור פתוח (WebSocket) לשרת: פקודות ושינויים מגיעים מיד, בלי לשאול כל הזמן.
+// אם החיבור נופל — מתחברים מחדש לבד, ובינתיים בודקים כל 15 שניות בדרך הרגילה (poll).
+// בנוסף, הורדה מלאה של הנתונים כל 10 דקות.
 (function () {
   'use strict';
 
@@ -20,6 +21,9 @@
   let lastMinute = '';
   let slidesSig = '';
   let tickerSig = '';
+  let ws = null;
+  let wsUp = false;
+  let lastPoll = 0;
 
   // ---------- עזרים ----------
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -100,6 +104,9 @@
   async function poll() {
     if (!KEY) return;
     if (!data || Date.now() - lastFull > FULL_MS) return loadFull();
+    // כשהחיבור הפתוח עובד — בדיקה רגילה רק פעם ב-5 דקות, ליתר ביטחון
+    if (wsUp && Date.now() - lastPoll < 5 * 60 * 1000) return;
+    lastPoll = Date.now();
     let res;
     try {
       res = await fetchJson('/api/screen/' + encodeURIComponent(KEY) + '/poll', {
@@ -116,6 +123,53 @@
     if (p.cmd && runCommand(p.cmd)) return;
     if (pageVersion && p.version !== pageVersion) return safeReload();
     if (p.rev !== data.rev) return loadFull();
+  }
+
+  // ---------- חיבור פתוח ----------
+  let wsRetry = 2000;
+  let wsPing = null;
+  let lastPong = 0;
+  let changedTimer = null;
+  function connect() {
+    if (PREVIEW || !KEY || !('WebSocket' in window)) return;
+    try {
+      ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
+        + '/api/screen/' + encodeURIComponent(KEY) + '/ws');
+    } catch { return reconnect(); }
+    ws.onopen = () => {
+      wsUp = true; wsRetry = 2000; lastPong = Date.now();
+      $('offline').hidden = true;
+      ws.send(JSON.stringify({ t: 'info', w: screen.width, h: screen.height, v: pageVersion || '' }));
+      clearInterval(wsPing);
+      wsPing = setInterval(() => {
+        // אין תשובה דקה וחצי — החיבור מת, מתחברים מחדש
+        if (Date.now() - lastPong > 90 * 1000) { try { ws.close(); } catch {} return; }
+        try { ws.send('ping'); } catch {}
+      }, 30 * 1000);
+    };
+    ws.onmessage = (e) => {
+      if (e.data === 'pong') { lastPong = Date.now(); return; }
+      let m; try { m = JSON.parse(e.data); } catch { return; }
+      lastPong = Date.now();
+      if (m.t === 'hello') {
+        // מחובר — בודקים אם פספסנו משהו בזמן הניתוק, ואם עלתה גרסה חדשה
+        if (pageVersion && m.version !== pageVersion) return safeReload();
+        lastPoll = 0; poll();
+      } else if (m.t === 'changed') {
+        // כמה שינויים ברצף (למשל PDF של 10 עמודים) — מורידים פעם אחת
+        clearTimeout(changedTimer);
+        changedTimer = setTimeout(loadFull, 600);
+      } else if (m.t === 'cmd' && m.cmd) {
+        runCommand(m.cmd);
+      }
+    };
+    ws.onclose = () => { wsUp = false; clearInterval(wsPing); reconnect(); };
+    ws.onerror = () => { try { ws.close(); } catch {} };
+  }
+  function reconnect() {
+    clearTimeout(reconnect.t);
+    reconnect.t = setTimeout(connect, wsRetry);
+    wsRetry = Math.min(wsRetry * 2, 60 * 1000);
   }
 
   // פקודות מדף הניהול. מחזיר true אם הדף עומד להתרענן.
@@ -447,6 +501,7 @@
   try { data = JSON.parse(ls.get(CACHE)); } catch { data = null; }
   if (data) render();
   loadFull();
+  connect();
   setInterval(poll, POLL_MS);
   setInterval(tick, 1000);
   requestAnimationFrame(animateTicker);

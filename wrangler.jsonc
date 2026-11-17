@@ -12,8 +12,12 @@
   // מסד הנתונים (נוצר אוטומטית בפריסה הראשונה; המזהה קבוע כאן כדי שכל פריסה תשתמש באותו מסד)
   "d1_databases": [{ "binding": "DB", "database_id": "66e837d2-9355-4d7f-8547-9fea401ed511" }],
 
-  // אחסון התמונות והסרטונים (R2) — נוצר אוטומטית בפריסה הראשונה. צריך להפעיל R2 בחשבון פעם אחת.
-  "r2_buckets": [{ "binding": "MEDIA" }],
+  // אחסון התמונות והסרטונים (R2)
+  "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "coilel" }],
+
+  // חיבור פתוח לכל מסך (Durable Objects — כלול גם במסלול החינמי)
+  "durable_objects": { "bindings": [{ "name": "HUB", "class_name": "ScreenHub" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ScreenHub"] }],
 
   // מזהה הגרסה — כדי שהמסכים ירעננו את עצמם אחרי עדכון
   "version_metadata": { "binding": "CF_VERSION_METADATA" },

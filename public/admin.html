@@ -148,7 +148,7 @@
           <button data-cmd="reload" class="ghost">רענון מלא של הדף</button>
           <button data-cmd="identify" class="ghost">זיהוי מסך (מציג את השם 15 שניות)</button>
         </div>
-        <p class="hint">המסך מקבל את הפקודה תוך 15 שניות. הפעלה מחדש של המחשב עצמו — בשלב של התוכנה למחשב.</p>
+        <p class="hint">המסך מקבל את הפקודה מיד (אם הוא מחובר). הפעלה מחדש של המחשב עצמו — בשלב של התוכנה למחשב.</p>
         <h3>הודעה דחופה על המסך</h3>
         <div class="row">
           <div style="grid-column: span 2"><label for="alertText">הטקסט</label><input type="text" id="alertText" placeholder="לדוגמה: מנחה בעוד 5 דקות"></div>
@@ -276,7 +276,9 @@
   }
 
   const screenOf = (id) => screens.find((s) => s.id === id);
-  const isLive = (s) => s.seen_at && serverNow - Date.parse(s.seen_at) < 2.5 * 60 * 1000;
+  // מחובר = יש חיבור פתוח חי (או, אם אין מידע, דיווח בדקות האחרונות)
+  const pages = (s) => (s.live || []).filter((c) => c.role === 'page');
+  const isLive = (s) => (s.live ? pages(s).length > 0 : s.seen_at && serverNow - Date.parse(s.seen_at) < 6 * 60 * 1000);
   function ago(iso) {
     if (!iso) return 'עוד לא התחבר';
     const min = Math.round((serverNow - Date.parse(iso)) / 60000);
@@ -309,7 +311,7 @@
       `<button class="scr${sel === 'global' ? ' on' : ''}" data-sel="global"><div class="n">כל המסכים</div><div class="s">תוכן שמוצג בכל המסכים</div></button>` +
       screens.map((s) => `<button class="scr${sel === s.id ? ' on' : ''}" data-sel="${esc(s.id)}">
         <div class="n"><span class="dot${isLive(s) ? ' live' : ''}"></span>${esc(s.name)}</div>
-        <div class="s">${isLive(s) ? 'מחובר' : 'לא מחובר'} · ${esc(ago(s.seen_at))}</div></button>`).join('');
+        <div class="s">${isLive(s) ? 'מחובר עכשיו' : 'לא מחובר · ' + esc(ago(s.seen_at))}</div></button>`).join('');
   }
 
   function select(id) {
@@ -340,8 +342,11 @@
   // ---------- שליטה ----------
   function renderControl(fresh) {
     const s = screenOf(sel); if (!s) return;
-    const i = s.seen_info || {};
-    $('status').innerHTML = `<span class="dot${isLive(s) ? ' live' : ''}"></span><b>${isLive(s) ? 'מחובר' : 'לא מחובר'}</b> · דיווח אחרון: ${esc(ago(s.seen_at))}`
+    const live = pages(s)[0];
+    const i = (live && live.info) || s.seen_info || {};
+    $('status').innerHTML = `<span class="dot${isLive(s) ? ' live' : ''}"></span><b>${isLive(s) ? 'מחובר' : 'לא מחובר'}</b>`
+      + (isLive(s) && live ? ` · חיבור פתוח מ-${esc(new Date(live.since).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }))}` : ` · נראה לאחרונה: ${esc(ago(s.seen_at))}`)
+      + (pages(s).length > 1 ? ` · <b>${pages(s).length} מסכים פתוחים על הכתובת הזאת</b>` : '')
       + (i.w ? ` · מסך <bdi dir="ltr">${Number(i.w)}×${Number(i.h)}</bdi>` : '') + (i.v && meta && i.v !== meta.version ? ' · <span style="color:var(--danger)">גרסה ישנה — יתעדכן לבד</span>' : '');
     const o = location.origin;
     $('links').innerHTML = `כתובת: <a href="/${esc(s.slug)}" target="_blank">${esc(o)}/${esc(s.slug)}</a><br>`
@@ -359,7 +364,7 @@
   }
 
   async function command(type) {
-    try { await api('POST', `screens/${sel}/command`, { type }); flash('נשלח. המסך יקבל את הפקודה תוך 15 שניות.'); }
+    try { await api('POST', `screens/${sel}/command`, { type }); flash('נשלח למסך.'); }
     catch (e) { flash(e.message, false); }
   }
 
@@ -560,7 +565,7 @@
     if (c.title) body.title = $('ctitle').value;
     try {
       const r = await api('PUT', `content/${encodeURIComponent(sel)}/${ctab}`, body);
-      flash(`נשמר (${r.count} שורות). המסכים יתעדכנו תוך 15 שניות.`);
+      flash(`נשמר (${r.count} שורות). המסכים מתעדכנים עכשיו.`);
       await loadContent();
     } catch (e) { flash(e.message, false); }
   }
@@ -601,7 +606,7 @@
     $('edShow').querySelectorAll('input').forEach((x) => { settings[x.dataset.k] = x.checked; });
     try {
       await api('PATCH', 'screens/' + s.id, { name: $('edName').value, slug: $('edSlug').value, settings });
-      flash('נשמר. המסך יתעדכן תוך 15 שניות.');
+      flash('נשמר. המסך מתעדכן עכשיו.');
       await loadScreens(); select(s.id);
     } catch (e) { flash(e.message, false); }
   }
@@ -623,7 +628,7 @@
   document.querySelectorAll('[data-cmd]').forEach((b) => { b.onclick = () => command(b.dataset.cmd); });
   $('alertSend').onclick = async () => {
     try { await api('PUT', `screens/${sel}/alert`, { text: $('alertText').value, minutes: Number($('alertMin').value) });
-      flash('ההודעה תופיע תוך 15 שניות.'); await loadScreens(); renderControl(); } catch (e) { flash(e.message, false); }
+      flash('ההודעה מוצגת על המסך.'); await loadScreens(); renderControl(); } catch (e) { flash(e.message, false); }
   };
   $('alertClear').onclick = async () => {
     try { await api('DELETE', `screens/${sel}/alert`); flash('ההודעה הוסרה.'); await loadScreens(); renderControl(); } catch (e) { flash(e.message, false); }

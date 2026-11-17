@@ -4,7 +4,8 @@
 //   /admin                         דף ניהול
 //   /media/<...>                   התמונות והסרטונים שהועלו
 //   /api/screen/<מזהה>             כל הנתונים של מסך (ציבורי, לקריאה בלבד)
-//   /api/screen/<מזהה>/poll        בדיקה קטנה כל 15 שניות: האם השתנה משהו / יש פקודה
+//   /api/screen/<מזהה>/ws          חיבור פתוח: פקודות ושינויים מגיעים למסך מיד
+//   /api/screen/<מזהה>/poll        גיבוי כשהחיבור הפתוח נופל: האם השתנה משהו / יש פקודה
 //   /api/admin/...                 ניהול — דורש  Authorization: Bearer <ADMIN_KEY>
 import {
   ensureSchema, listScreens, findScreen, pollScreen, createScreen, updateScreen, setScreenField, deleteScreen,
@@ -12,6 +13,8 @@ import {
   listMedia, getMedia, addMedia, updateMedia, reorderMedia, deleteMedia, mediaUsingKey, mediaOfScreen, deleteMediaRows,
 } from './db.js';
 import { buildDays, demoTefilot, isoToday, ZMANIM } from './days.js';
+
+export { ScreenHub } from './hub.js';
 
 // כתובת של מסך: /hall או /s/hall. קבצי האתר (/admin וכו') מוגשים לפני שמגיעים לכאן.
 const SCREEN_PATH = /^\/(?:s\/)?[a-z0-9][a-z0-9-]*$/;
@@ -38,18 +41,19 @@ export default {
       }
       if (path === '/api/health') return json({ ok: true, version: version(env) });
 
-      const sm = path.match(/^\/api\/screen\/([^/]+)(\/poll)?$/);
+      const sm = path.match(/^\/api\/screen\/([^/]+)(\/poll|\/ws)?$/);
       if (sm) {
         await ensureSchema(env.DB);
         const key = decodeURIComponent(sm[1]);
-        if (sm[2] && request.method === 'POST') return screenPoll(request, env, key);
+        if (sm[2] === '/ws' && request.method === 'GET') return screenSocket(request, env, key, 'page');
+        if (sm[2] === '/poll' && request.method === 'POST') return screenPoll(request, env, key);
         if (!sm[2] && request.method === 'GET') return screenData(env, key);
       }
       if (path.startsWith('/api/admin/')) {
         const denied = await checkAdmin(request, env);
         if (denied) return denied;
         await ensureSchema(env.DB);
-        return admin(request, env, path.slice('/api/admin/'.length).split('/').map(decodeURIComponent), url);
+        return admin(request, env, ctx, path.slice('/api/admin/'.length).split('/').map(decodeURIComponent), url);
       }
       return json({ ok: false, error: 'לא נמצא' }, 404);
     } catch (err) {
@@ -101,6 +105,45 @@ async function checkAdmin(request, env) {
 function needMedia(env) {
   if (!env.MEDIA) throw new HttpError(503, 'אחסון הקבצים (R2) לא מחובר ב-Cloudflare');
   return env.MEDIA;
+}
+
+// ---------- חיבור פתוח (רכזת לכל מסך) ----------
+
+function hub(env, screenId) {
+  return env.HUB.get(env.HUB.idFromName(screenId));
+}
+
+async function screenSocket(request, env, key, role) {
+  if (request.headers.get('upgrade') !== 'websocket') return json({ ok: false, error: 'צריך WebSocket' }, 426);
+  const screen = await findScreen(env.DB, key);
+  if (!screen) return json({ ok: false, error: 'המסך לא נמצא', notFound: true }, 404);
+  const u = new URL('https://hub/ws');
+  u.searchParams.set('id', screen.id);
+  u.searchParams.set('role', role);
+  return hub(env, screen.id).fetch(new Request(u, request));
+}
+
+/** דוחף הודעה מיד לכל מי שמחובר למסכים האלה. scope = 'global' → לכל המסכים */
+async function push(env, scope, msg, role) {
+  if (!env.HUB) return;
+  const ids = scope === 'global' ? (await listScreens(env.DB)).map((s) => s.id) : [scope];
+  const body = JSON.stringify(msg);
+  await Promise.all(ids.map(async (id) => {
+    try {
+      await hub(env, id).fetch(`https://hub/notify${role ? '?role=' + role : ''}`, { method: 'POST', body });
+    } catch (err) {
+      console.error(JSON.stringify({ message: 'push failed', id, error: String(err) }));
+    }
+  }));
+}
+
+async function liveStatus(env, id) {
+  if (!env.HUB) return null;
+  try {
+    const r = await hub(env, id).fetch('https://hub/status');
+    const j = await r.json();
+    return j.clients || [];
+  } catch { return null; }
 }
 
 // ---------- הדף של המסך ----------
@@ -339,9 +382,11 @@ async function removeObjects(env, keys) {
   if (unused.length) await env.MEDIA.delete(unused);
 }
 
-async function admin(request, env, parts, url) {
+async function admin(request, env, ctx, parts, url) {
   const db = env.DB;
   const m = request.method;
+  // אחרי כל שינוי — המסכים מקבלים הודעה מיד (ברקע, בלי לעכב את התשובה)
+  const changed = (scope) => ctx.waitUntil(push(env, scope, { t: 'changed' }));
   try {
     // GET /api/admin/meta — מה אפשר להגדיר
     if (parts[0] === 'meta' && m === 'GET') {
@@ -351,7 +396,11 @@ async function admin(request, env, parts, url) {
 
     if (parts[0] === 'screens') {
       const id = parts[1];
-      if (!id && m === 'GET') return json({ ok: true, screens: await listScreens(db), now: new Date().toISOString() });
+      if (!id && m === 'GET') {
+        const list = await listScreens(db);
+        await Promise.all(list.map(async (s) => { s.live = await liveStatus(env, s.id); }));
+        return json({ ok: true, screens: list, now: new Date().toISOString() });
+      }
       if (!id && m === 'POST') {
         const body = await readJson(request);
         const name = cleanName(body.name);
@@ -369,7 +418,9 @@ async function admin(request, env, parts, url) {
         if (sub === 'command' && m === 'POST') {
           const b = await readJson(request);
           if (!COMMANDS.includes(b.type)) throw new HttpError(400, 'פקודה לא מוכרת');
-          await setScreenField(db, id, 'cmd', { id: crypto.randomUUID(), type: b.type, at: new Date().toISOString() });
+          const cmd = { id: crypto.randomUUID(), type: b.type, at: new Date().toISOString() };
+          await setScreenField(db, id, 'cmd', cmd);
+          await push(env, id, { t: 'cmd', cmd });
           return json({ ok: true });
         }
         // PUT /api/admin/screens/<id>/alert  {"text": "...", "minutes": 10}   |   DELETE
@@ -381,11 +432,12 @@ async function admin(request, env, parts, url) {
           if (minutes < 0 || minutes > 7 * 24 * 60) throw new HttpError(400, 'משך לא תקין');
           const until = minutes ? new Date(Date.now() + minutes * 60000).toISOString() : null;
           await setScreenField(db, id, 'alert', { text, until });
+          changed(id);
           return json({ ok: true, until });
         }
-        if (sub === 'alert' && m === 'DELETE') { await setScreenField(db, id, 'alert', null); return json({ ok: true }); }
+        if (sub === 'alert' && m === 'DELETE') { await setScreenField(db, id, 'alert', null); changed(id); return json({ ok: true }); }
 
-        if (!sub && m === 'GET') return json({ ok: true, screen });
+        if (!sub && m === 'GET') { screen.live = await liveStatus(env, id); return json({ ok: true, screen }); }
         if (!sub && m === 'PATCH') {
           const body = await readJson(request);
           const patch = {};
@@ -395,7 +447,9 @@ async function admin(request, env, parts, url) {
             if (await slugTaken(db, patch.slug, id)) throw new HttpError(409, 'הכתובת הזאת כבר תפוסה');
           }
           patch.settings = cleanSettings(body.settings);
-          return json({ ok: true, screen: await updateScreen(db, id, patch) });
+          const updated = await updateScreen(db, id, patch);
+          changed(id);
+          return json({ ok: true, screen: updated });
         }
         if (!sub && m === 'DELETE') {
           const rows = await mediaOfScreen(db, id);
@@ -417,9 +471,10 @@ async function admin(request, env, parts, url) {
         if (m === 'PUT') {
           const data = cleanContent(key, await readJson(request));
           await putContent(db, scope, key, data);
+          changed(scope);
           return json({ ok: true, count: data.items.length });
         }
-        if (m === 'DELETE') { await deleteContent(db, scope, key); return json({ ok: true }); }
+        if (m === 'DELETE') { await deleteContent(db, scope, key); changed(scope); return json({ ok: true }); }
       }
     }
 
@@ -454,6 +509,7 @@ async function admin(request, env, parts, url) {
           title: patch.title, seconds: patch.seconds, full: patch.full, from: patch.from, to: patch.to,
           group: (q.get('group') || '').slice(0, 40) || null,
         });
+        changed(scope);
         return json({ ok: true, media: item }, 201);
       }
       // POST /api/admin/media/order  {"scope": "...", "ids": [...]}
@@ -462,17 +518,20 @@ async function admin(request, env, parts, url) {
         const scope = await checkScope(db, b.scope || 'global');
         if (!Array.isArray(b.ids) || b.ids.length > 1000) throw new HttpError(400, 'רשימה לא תקינה');
         await reorderMedia(db, scope, b.ids.map(String));
+        changed(scope);
         return json({ ok: true });
       }
       if (id && m === 'PATCH') {
         const item = await updateMedia(db, id, cleanMediaPatch(await readJson(request)));
         if (!item) throw new HttpError(404, 'הקובץ לא נמצא');
+        changed(item.scope);
         return json({ ok: true, media: item });
       }
       if (id && m === 'DELETE') {
         const item = await deleteMedia(db, id);
         if (!item) throw new HttpError(404, 'הקובץ לא נמצא');
         await removeObjects(env, [item.r2key]);
+        changed(item.scope);
         return json({ ok: true });
       }
     }
