@@ -203,8 +203,8 @@
       <div class="screen">
         <div>
           <div class="name">${esc(s.name)}</div>
-          <div class="links">כתובת: <a href="/s/${esc(s.slug)}" target="_blank">${esc(origin)}/s/${esc(s.slug)}</a><br>
-          קבוע (למחשב): <a href="/s/${esc(s.id)}" target="_blank">${esc(origin)}/s/${esc(s.id)}</a></div>
+          <div class="links">כתובת: <a href="/${esc(s.slug)}" target="_blank">${esc(origin)}/${esc(s.slug)}</a><br>
+          קבוע (למחשב): <a href="/${esc(s.id)}" target="_blank">${esc(origin)}/${esc(s.id)}</a></div>
         </div>
         <div class="actions"><button class="ghost" data-edit="${esc(s.id)}">עריכה</button></div>
       </div>`).join('') : '<p class="hint">עוד אין מסכים. צור את הראשון למטה.</p>';

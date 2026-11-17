@@ -8,7 +8,7 @@
 
 | מה | איפה |
 |----|------|
-| הדף של המסך | `/s/<כתובת>` או `/s/<מזהה קבוע>` |
+| הדף של המסך | `/<כתובת>` או `/<מזהה קבוע>` (למשל `/hall`) |
 | דף ניהול (יצירת מסכים, שינוי שם, הודעות) | `/admin` |
 | הנתונים של מסך (ציבורי) | `GET /api/screen/<מזהה>` |
 | ניהול דרך API (בשביל ה-CRM) | `/api/admin/...` עם `Authorization: Bearer <ADMIN_KEY>` |
@@ -27,9 +27,9 @@
 
 1. נכנסים ל-[dash.cloudflare.com](https://dash.cloudflare.com) (חשבון חינמי, לא צריך דומיין).
 2. בתפריט: **Workers & Pages** ← **Create** ← לשונית **Workers** ← **Import a repository**.
-3. מחברים את GitHub (אם מבקש) ובוחרים את הריפו **shul-screens**.
+3. מחברים את GitHub (אם מבקש) ובוחרים את הריפו **shul-screens** (שם הריפו נשאר כמו שהוא).
 4. בהגדרות:
-   - **Project name:** `shul-screens` — חייב להיות בדיוק השם הזה.
+   - **Project name:** `tv` — חייב להיות בדיוק השם הזה.
    - **Build command:** להשאיר ריק.
    - **Deploy command:** `npx wrangler deploy`
    - **Root directory:** `/`
@@ -38,7 +38,7 @@
    - Type: **Secret**
    - Name: `ADMIN_KEY`
    - Value: סיסמה ארוכה שתבחר (זאת הסיסמה לדף הניהול, וה-CRM ישתמש בה).
-7. הכתובת של האתר מופיעה בדף ה-Worker, בצורה `https://shul-screens.<השם-שלך>.workers.dev`.
+7. הכתובת של האתר מופיעה בדף ה-Worker, בצורה `https://tv.<השם-שלך>.workers.dev`.
    נכנסים ל-`/admin`, מקלידים את הסיסמה, ויוצרים את המסך הראשון.
 
 מכאן והלאה: **כל עדכון שנדחף לענף `main` בגיטהאב עולה לאתר לבד.**

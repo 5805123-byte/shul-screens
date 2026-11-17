@@ -3,7 +3,7 @@
 (function () {
   'use strict';
 
-  const KEY = decodeURIComponent((location.pathname.match(/^\/s\/([^/]+)/) || [])[1] || '');
+  const KEY = decodeURIComponent((location.pathname.match(/^\/(?:s\/)?([^/]+)\/?$/) || [])[1] || '');
   const CACHE = 'screen-data:' + KEY;
   const POLL_MS = 60 * 1000;
   const $ = (id) => document.getElementById(id);

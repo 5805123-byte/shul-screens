@@ -1,6 +1,6 @@
 // מסכי בית הכנסת — השרת (Cloudflare Worker)
 //
-//   /s/<מזהה או כתובת>         הדף שמוצג על המסך
+//   /<כתובת או מזהה>           הדף שמוצג על המסך (גם /s/<...> עובד)
 //   /admin                      דף ניהול (יצירת מסכים, שינוי שם, הודעות)
 //   /api/screen/<מזהה>          הנתונים של מסך (ציבורי, לקריאה בלבד)
 //   /api/admin/...              ניהול — דורש  Authorization: Bearer <ADMIN_KEY>
@@ -12,6 +12,11 @@ import {
 } from './db.js';
 import { buildDays, demoTefilot, isoToday, ZMANIM } from './days.js';
 
+// כתובת של מסך: /hall או /s/hall. קבצי האתר (/admin וכו') מוגשים לפני שמגיעים לכאן.
+const SCREEN_PATH = /^\/(?:s\/)?[a-z0-9][a-z0-9-]*$/;
+// מילים שלא יכולות להיות כתובת של מסך
+const RESERVED = new Set(['admin', 'api', 's', 'screen', 'index', 'sw', 'robots', 'favicon', 'assets', 'static', 'agent', 'media']);
+
 const DAYS_AHEAD = 3;             // היום + יומיים, כדי שהמסך ימשיך לעבוד גם בלי אינטרנט
 const MAX_BODY = 256 * 1024;
 
@@ -20,7 +25,7 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname.replace(/\/+$/, '') || '/';
     try {
-      if (path.startsWith('/s/') && request.method === 'GET') return screenPage(request, env);
+      if (request.method === 'GET' && SCREEN_PATH.test(path)) return screenPage(request, env);
       if (path === '/api/health') return json({ ok: true, version: version(env) });
       if (path.startsWith('/api/screen/') && request.method === 'GET') {
         await ensureSchema(env.DB);
@@ -144,6 +149,7 @@ function cleanName(name) {
 function cleanSlug(slug) {
   const s = String(slug ?? '').trim().toLowerCase();
   if (!SLUG_RE.test(s)) throw new HttpError(400, 'כתובת המסך: אותיות באנגלית, ספרות ומקפים בלבד (עד 40 תווים)');
+  if (RESERVED.has(s)) throw new HttpError(400, `המילה "${s}" שמורה למערכת — בחר כתובת אחרת`);
   return s;
 }
 

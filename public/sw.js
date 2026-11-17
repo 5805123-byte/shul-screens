@@ -33,7 +33,8 @@ self.addEventListener('fetch', (e) => {
   if (url.pathname.startsWith('/api/')) return;   // הנתונים — הדף עצמו מטפל בזה
 
   // דף המסך וקבצי העיצוב — קודם מהרשת, ואם נכשל/שגיאה — מהמטמון
-  const isScreenPage = req.mode === 'navigate' && url.pathname.startsWith('/s/');
+  const isScreenPage = req.mode === 'navigate' && /^\/(?:s\/)?[a-z0-9][a-z0-9-]*\/?$/.test(url.pathname)
+    && !['/admin', '/screen', '/index'].includes(url.pathname.replace(/\/$/, ''));
   const cacheKey = isScreenPage ? '/screen' : url.pathname;
   if (!isScreenPage && !SHELL.includes(url.pathname)) return;
   e.respondWith((async () => {

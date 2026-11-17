@@ -2,7 +2,7 @@
   // מסכי בית הכנסת — Cloudflare Worker
   // השם חייב להיות זהה לשם ה-Worker בלוח הבקרה של Cloudflare (אחרת הבנייה האוטומטית נכשלת)
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "shul-screens",
+  "name": "tv",
   "main": "src/index.js",
   "compatibility_date": "2026-11-17",
 
